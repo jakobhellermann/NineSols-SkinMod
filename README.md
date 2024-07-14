@@ -4,6 +4,7 @@
 1. [Install BepInEx](https://docs.bepinex.dev/articles/user_guide/installation/index.html)
 2. Download [NineSolsAPI.dll](https://github.com/nine-sols-modding/NineSolsAPI/releases/tag/v0.3.0) and put it in `GameFolder/BepInEx/plugins`
 3. Download [SkinMod.dll](https://github.com/jakobhellermann/NineSols-SkinMod/releases) and put it in `GameFolder/BepInEx/plugins`
+4. (Optional) Install [BepInEx ConfigurationManager](https://github.com/BepInEx/BepInEx.ConfigurationManager/releases/) to choose your skin in-game
 
 ## Install Skins
 
