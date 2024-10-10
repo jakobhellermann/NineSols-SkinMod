@@ -1,22 +1,21 @@
 #!/usr/bin/env python
 from pathlib import Path
 
-from PIL import Image
 from UnityPy.environment import Environment
 from UnityPy.classes import Sprite, SpriteAtlas
-from UnityPy.export.SpriteHelper import get_image
 from UnityPy.enums import ClassIDType
-import json
 
-path = Path("C:/Program Files (x86)/Steam/steamapps/common/Nine Sols/NineSols_Data/")
+path = Path("/home/jakob/.local/share/Steam/steamapps/common/Nine Sols/NineSols_Data/")
 out = Path("out/individual_sprites")
 out.mkdir(exist_ok=True)
 
 if not path.exists():
     raise Exception(f"{path} does not exist")
 
+
 def interest_in_sprite(name: str):
-    return "Yee" in name and not name in ["HoHoYee_無極之地Bk"]
+    return "Yee" in name and name not in ["HoHoYee_無極之地Bk"]
+
 
 atlases: set[SpriteAtlas] = set()
 

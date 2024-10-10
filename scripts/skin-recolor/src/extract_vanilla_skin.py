@@ -19,7 +19,7 @@ if not path.exists():
 
 
 def interest_in_sprite(name: str):
-    return "Yee" in name and not name in ["HoHoYee_無極之地Bk"]
+    return "Yee" in name and name not in ["HoHoYee_無極之地Bk"]
 
 
 atlases: set[SpriteAtlas] = set()
