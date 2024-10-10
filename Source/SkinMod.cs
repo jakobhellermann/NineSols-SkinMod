@@ -15,8 +15,6 @@ internal record struct Rect(float x, float y, float width, float height);
 internal record struct JsonSpriteInfo(string name, Rect rect);
 // ReSharper restore InconsistentNaming
 
-internal record SpriteReplacementInfo(string AtlasName, Rect Rect, Sprite CachedSprite);
-
 [BepInDependency(NineSolsAPICore.PluginGUID)]
 [BepInPlugin(PluginInfo.PLUGIN_GUID, PluginInfo.PLUGIN_NAME, PluginInfo.PLUGIN_VERSION)]
 public class SkinMod : BaseUnityPlugin {
@@ -91,10 +89,13 @@ public class SkinMod : BaseUnityPlugin {
         if (!enableSkin.Value) return;
         if (Player.i is not { } player) return;
 
-
         var spriteRenderer = player.PlayerSprite;
         var originalSprite = spriteRenderer.sprite;
-        if (skinDataCache.GetSprite(originalSprite) is { } sprite) spriteRenderer.sprite = sprite;
+        try {
+            if (skinDataCache.GetSprite(originalSprite) is { } sprite) spriteRenderer.sprite = sprite;
+        } catch (Exception e) {
+            Log.Error($"Could not set sprite: {e}");
+        }
     }
 
 

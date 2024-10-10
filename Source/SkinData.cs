@@ -7,12 +7,13 @@ using UnityEngine;
 
 namespace SkinMod;
 
+// ReSharper disable once InconsistentNaming
 public record struct SkinMeta(string name);
 
 public class SkinDataCache : IDisposable {
     private Dictionary<string, (string, Rect)> spriteLocations = new();
 
-    private static string[] extensions = ["png", "jpg", "jpeg"];
+    private static string[] imageExtensions = ["png", "jpg", "jpeg"];
 
     public SkinDataCache() {
         var json =
@@ -25,8 +26,8 @@ public class SkinDataCache : IDisposable {
 
     private ISkinData? skinData;
 
-    private Dictionary<string, Texture2D> atlasCache = new();
-    private Dictionary<string, Sprite> spriteCache = new();
+    private Dictionary<string, Texture2D?> atlasCache = new();
+    private Dictionary<string, Sprite?> spriteCache = new();
 
     public void SetSkin(ISkinData? skinData) {
         this.skinData = skinData;
@@ -39,10 +40,15 @@ public class SkinDataCache : IDisposable {
         skinData?.Dispose();
     }
 
-    private Texture2D? GetAtlas(string atlasName) {
+    private Texture2D? GetAtlas(ISkinData skinData, string atlasName) {
         if (atlasCache.TryGetValue(atlasName, out var atlas)) return atlas;
+        var newAtlas = GetAtlasInner(skinData, atlasName);
+        atlasCache[atlasName] = newAtlas;
+        return newAtlas;
+    }
 
-        using var stream = skinData?.OpenFile(atlasName, extensions);
+    private Texture2D? GetAtlasInner(ISkinData skinData, string atlasName) {
+        using var stream = skinData.OpenFile(atlasName, imageExtensions);
         if (stream is null) return null;
         using var reader = new MemoryStream();
         stream.CopyTo(reader);
@@ -50,7 +56,6 @@ public class SkinDataCache : IDisposable {
         var texture = new Texture2D(2, 2);
         texture.LoadImage(reader.GetBuffer());
 
-        atlasCache[atlasName] = texture;
         return texture;
     }
 
@@ -78,22 +83,24 @@ public class SkinDataCache : IDisposable {
 
     public Sprite? GetSprite(Sprite original) {
         if (skinData is null) return null;
-
         if (spriteCache.TryGetValue(original.name, out var cachedSprite)) return cachedSprite;
+        var sprite = GetSpriteInner(skinData, original);
+        spriteCache[original.name] = sprite;
+        return sprite;
+    }
 
-
-        // if (!original.name.Contains("0")) return null;
-
+    private Sprite? GetSpriteInner(ISkinData skinData, Sprite original) {
         if (!spriteLocations.TryGetValue(original.name, out var location)) return null;
 
         var (atlasName, rect) = location;
-        if (GetAtlas(atlasName) is not { } atlas) return null;
+        if (GetAtlas(skinData, atlasName) is not { } atlas) return null;
         var uRect = new UnityEngine.Rect(rect.x, rect.y, rect.width, rect.height);
-
         var empty = new Texture2D(atlas.width, atlas.height);
 
+        if (!original.name.StartsWith("HoHoYee_Standingidle4")) return null;
+
         var pivot = original.pivot / original.rect.size;
-        var sprite = Sprite.CreateSprite(
+        var sprite = Sprite.Create(
             atlas,
             // empty,
             original.textureRect,
@@ -122,7 +129,6 @@ public class SkinDataCache : IDisposable {
 
         sprite.OverridePhysicsShape(physicsShapes);
 
-        spriteCache[original.name] = sprite;
         return sprite;
     }
 }
@@ -148,7 +154,13 @@ public interface ISkinData : IDisposable {
 
 internal class DirectorySkinData(string dirPath) : ISkinData {
     // todo: fix path traversal?
-    public Stream? OpenFile(string filename) => File.OpenRead(Path.Combine(dirPath, filename));
+    public Stream? OpenFile(string filename) {
+        try {
+            return File.OpenRead(Path.Combine(dirPath, filename));
+        } catch (FileNotFoundException) {
+            return null;
+        }
+    }
 
     public override string ToString() => $"DirectorySkinData({dirPath}";
 
@@ -156,7 +168,7 @@ internal class DirectorySkinData(string dirPath) : ISkinData {
     }
 }
 
-internal class ZipSkinData : IDisposable, ISkinData {
+internal class ZipSkinData : ISkinData {
     private ZipArchive zipArchive;
     private string path;
 
