@@ -9,11 +9,11 @@ using UnityEngine;
 
 namespace SkinMod;
 
-// ReSharper disable once InconsistentNaming
+// ReSharper disable InconsistentNaming
 internal record struct Rect(float x, float y, float width, float height);
 
-// ReSharper disable once InconsistentNaming
 internal record struct JsonSpriteInfo(string name, Rect rect);
+// ReSharper restore InconsistentNaming
 
 internal record SpriteReplacementInfo(string AtlasName, Rect Rect, Sprite CachedSprite);
 
