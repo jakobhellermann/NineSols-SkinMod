@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.IO.Compression;
 using System.Linq;
+using NineSolsAPI;
 using NineSolsAPI.Utils;
 using UnityEngine;
 
@@ -26,11 +27,21 @@ public class SkinDataCache : IDisposable {
     }
 
     private ISkinData? activeSkinData;
+    private Dictionary<string, string> skinPaths = [];
 
     private Dictionary<string, Texture2D?> atlasCache = new();
     private Dictionary<string, Sprite?> spriteCache = new();
 
     public void SetSkin(ISkinData? skinData) {
+        skinPaths.Clear();
+        if (skinData != null)
+            foreach (var path in skinData.LoadFiles()) {
+                var name = Path.GetFileNameWithoutExtension(path);
+                if (!skinPaths.TryAdd(name, path))
+                    Log.Warning(
+                        $"duplicate skin sprite name: {Path.GetFileName(path)} at {skinPaths[name]} and {path}");
+            }
+
         activeSkinData = skinData;
         atlasCache.Clear();
         spriteCache.Clear();
@@ -90,15 +101,45 @@ public class SkinDataCache : IDisposable {
         return sprite;
     }
 
+
+    private Texture2D StreamToTexture(Stream stream) {
+        using var reader = new MemoryStream();
+        stream.CopyTo(reader);
+
+        var texture = new Texture2D(2, 2);
+        texture.LoadImage(reader.GetBuffer());
+
+        return texture;
+    }
+
     private Sprite? GetSpriteInner(ISkinData skinData, Sprite original) {
-        if (!spriteLocations.TryGetValue(original.name, out var location)) return null;
+        if (!skinPaths.TryGetValue(original.name, out var spritePath)) return null;
+        if (skinData.OpenFile(spritePath) is not { } spriteData) return null;
+        var texture = StreamToTexture(spriteData);
+
+
+        var diffX = texture.width - original.textureRect.width;
+        var diffY = texture.height - original.textureRect.height;
+        ToastManager.Toast($"diffx {diffX} diffy {diffY}");
+
+        var sprite = Sprite.Create(texture, new UnityEngine.Rect(0, 0, texture.width, texture.height),
+            new Vector2(0.5f, 0), 8);
+        // var sprite = Sprite.Create(texture, new UnityEngine.Rect(0, 0, original.textureRect.width, original.textureRect.height), new Vector2(0.5f, 0), 8);
+
+        return sprite;
+    }
+    /*private Sprite? GetSpriteInner(ISkinData skinData, Sprite original) {
+        if (!spriteLocations.TryGetValue(original.name, out var location)) {
+            ToastManager.Toast("no sprite location");
+            return null;
+        }
 
         var (atlasName, rect) = location;
         if (GetAtlas(skinData, atlasName) is not { } atlas) return null;
         var uRect = new UnityEngine.Rect(rect.x, rect.y, rect.width, rect.height);
         var empty = new Texture2D(atlas.width, atlas.height);
 
-        if (!original.name.StartsWith("HoHoYee_Standingidle4")) return null;
+        // if (!original.name.StartsWith("HoHoYee_Standingidle4")) return null;
 
         var pivot = original.pivot / original.rect.size;
         var sprite = Sprite.Create(
@@ -112,14 +153,14 @@ public class SkinDataCache : IDisposable {
 
         var factor = original.textureRect.size / original.rect.size;
 
-        /*sprite.OverrideGeometry(original.vertices.Select(x => {
+        sprite.OverrideGeometry(original.vertices.Select(x => {
             var delta = pivot * sprite.textureRect.size;
             var remapped = x * 8f * factor + delta;
             return new Vector2(
                 Mathf.Clamp(remapped.x, 0, sprite.rect.width),
                 Mathf.Clamp(remapped.y, 0, sprite.rect.height)
             );
-        }).ToArray(), original.triangles);*/
+        }).ToArray(), original.triangles);
 
         var physicsShapes = new List<Vector2[]>(original.GetPhysicsShapeCount());
         for (var i = 0; i < original.GetPhysicsShapeCount(); i++) {
@@ -131,7 +172,7 @@ public class SkinDataCache : IDisposable {
         sprite.OverridePhysicsShape(physicsShapes);
 
         return sprite;
-    }
+    }*/
 }
 
 public interface ISkinData : IDisposable {
@@ -165,9 +206,7 @@ internal class DirectorySkinData(string dirPath) : ISkinData {
         }
     }
 
-    public IEnumerable<string> LoadFiles() {
-        return Directory.EnumerateFiles(dirPath, "*.*", SearchOption.AllDirectories);
-    }
+    public IEnumerable<string> LoadFiles() => Directory.EnumerateFiles(dirPath, "*.*", SearchOption.AllDirectories);
 
     public override string ToString() => $"DirectorySkinData({dirPath}";
 
@@ -195,7 +234,7 @@ internal class ZipSkinData : ISkinData {
     }
 
     public IEnumerable<string> LoadFiles() {
-        return zipArchive.Entries.Select(entry => entry.Name);
+        return zipArchive.Entries.Select(entry => entry.FullName).Where(path => !path.EndsWith("/"));
     }
 
 
