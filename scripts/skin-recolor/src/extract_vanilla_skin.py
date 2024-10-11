@@ -1,33 +1,73 @@
 #!/usr/bin/env python
 from pathlib import Path
-
-from PIL import Image
-from UnityPy.environment import Environment
-from UnityPy.classes import Sprite, SpriteAtlas
-from UnityPy.export.SpriteHelper import get_image
-from UnityPy.enums import ClassIDType
+import shutil
 import json
 
-export_textures = True
-write_atlas_info = False
+from UnityPy.environment import Environment
+from UnityPy.classes import Sprite, SpriteAtlas
+from UnityPy.enums import ClassIDType
 
-path = Path("/home/jakob/.local/share/Steam/steamapps/common/Nine Sols/NineSols_Data/")
+
+# configuration
+path = Path("/home/uni/.local/share/Steam/steamapps/common/Nine Sols/NineSols_Data/")
 out = Path("out")
+
+interest_includes = ["Yee"]
+interest_excludes = [
+    "HoHoYee_無極之地Bk",
+    "ControlRoom_YeeScreen",
+    "2048light",
+    "BackgroundYee",
+]
+
+files = ["resources.assets"]
+# files = ["resources.assets", *[f"sharedassets{i}.assets" for i in range(0, 116)]]
 
 if not path.exists():
     raise Exception(f"{path} does not exist")
 
 
 def interest_in_sprite(name: str):
-    return "Yee" in name and name not in ["HoHoYee_無極之地Bk"]
+    for include in interest_includes:
+        if include not in name:
+            return False
+    for exclude in interest_excludes:
+        if exclude in name:
+            return False
+
+    return True
 
 
-atlases: set[SpriteAtlas] = set()
+# utils
 
-# files = ["resources.assets", *[f"sharedassets{i}.assets" for i in range(0, 116)]]
-files = ["resources.assets"]
 
-# for i in range(0, 110):
+def dedup_by(values, by):
+    return [v1 for i, v1 in enumerate(values) if not any((by(v1) == by(v2) for v2 in values[:i]))]
+
+
+def commonprefix(m):
+    if not m:
+        return ""
+    s1 = min(m)
+    s2 = max(m)
+    for i, c in enumerate(s1):
+        if c != s2[i]:
+            return s1[:i]
+    return s1
+
+
+def infer_atlas_name(atlas: SpriteAtlas):
+    prefix = commonprefix(set(atlas.m_PackedSpriteNamesToIndex))
+    return (
+        prefix.strip("_")
+        if prefix
+        else atlas.name.replace("_master_atlas", "").replace("2020", "")
+    )
+
+
+# collect sprites
+
+atlases: dict[SpriteAtlas, list[Sprite]] = {}
 for filename in files:
     assets = Environment(str(path.joinpath(filename))).file
 
@@ -36,59 +76,50 @@ for filename in files:
             sprite: Sprite = obj.read()
             sprite_name = sprite.m_Name
             atlas = sprite.m_SpriteAtlas.get_obj()
+
             if interest_in_sprite(sprite_name):
                 if atlas is not None:
-                    atlases.add(atlas.read())
+                    atlas = atlas.read()
+                    atlases[atlas] = atlases.get(atlas, [])
+                    # atlases[atlas].append(sprite)
+                else:
+                    atlases[None] = atlases.get(None, [])
+                    atlases[None].append(sprite)
 
-new = {}
 for atlas in atlases:
-    filename = atlas.assets_file.name
-    list = new[filename] = new.get(filename, [])
-    list.append(atlas.name)
+    if atlas is None:
+        continue
+
+    sprites_deduped = dedup_by(
+        [x.read() for x in atlas.m_PackedSprites], lambda x: x.name
+    )
+    atlases[atlas].extend(sprites_deduped)
+
 
 out.mkdir(exist_ok=True)
+out_skin = out.joinpath("skin_vanilla")
+out_skin.mkdir(exist_ok=True)
 
-# out_json = dict(sorted(new.items()))
-# with open(out.joinpath("out.json"), "w") as f:
-#     f.write(json.dumps(out_json, ensure_ascii=False, indent=4))
-
-out_atlases = out.joinpath("skin_vanilla")
-out_atlases.mkdir(exist_ok=True)
-
-
-sprite_lookup = {}
 for atlas in atlases:
-    print(atlas.name)
-    atlas_sprites = []
-    for i, render_data in enumerate(atlas.m_RenderDataMap.values()):
-        name = atlas.m_PackedSpriteNamesToIndex[i]
-        if interest_in_sprite(name):
-            atlas_sprites.append(
-                {
-                    "name": name,
-                    "rect": render_data.textureRect.__dict__,
-                }
-            )
-    sprite_lookup[atlas.name] = atlas_sprites
+    atlas_name = infer_atlas_name(atlas) if atlas else "uncategorized"
 
-    if export_textures:
-        textures = set(
-            data.texture.get_obj() for data in atlas.m_RenderDataMap.values()
+    out_skin_atlas = out_skin.joinpath(atlas_name)
+    out_skin_atlas.mkdir(exist_ok=True)
+
+    for sprite in atlases[atlas]:
+        out_skin_atlas_texture = out_skin_atlas.joinpath(sprite.name).with_suffix(
+            ".png"
         )
-        alpha_textures = set(
-            data.alphaTexture.get_obj() for data in atlas.m_RenderDataMap.values()
-        )
-        (texture,) = textures
-        (alpha_texture,) = alpha_textures
-        assert alpha_texture is None
-        img = get_image(texture, texture, None)
-        img = img.transpose(Image.Transpose.FLIP_TOP_BOTTOM)
+        if not out_skin_atlas_texture.exists():
+            sprite.image.save(str(out_skin_atlas_texture))
 
-        out_path = out_atlases.joinpath(atlas.name).with_suffix(".png")
-        img.save(out_path)
 
-if write_atlas_info:
-    with open(out.joinpath("atlas_info.json"), "w") as f:
-        f.write(json.dumps(sprite_lookup, ensure_ascii=False, indent=2))
+skin_json = {
+    "version": "1",
+    "name": "vanilla",
+}
 
-print("Done")
+with open(out_skin.joinpath("skin.json"), "w") as f:
+    json.dump(skin_json, f, indent=4)
+
+shutil.make_archive(out_skin, "zip", out_skin)
