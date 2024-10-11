@@ -28,6 +28,7 @@ def replace_color(data, target_color, new_color, fuzz):
 
     data[mask] = np.hstack((adjusted_color[mask], data[mask, 3][:, np.newaxis]))
 
+    return np.any(mask)
 
 input_dir = Path("out/skin_vanilla")
 
@@ -37,6 +38,8 @@ def recolor(name, out_dir, replacements, fuzz):
     with open(out_dir.joinpath("skin.json"), "w") as f:
         f.write(json.dumps({"name": name}, indent=4))
 
+    n_changed = 0
+    n_unchanged = 0
     for atlas in input_dir.iterdir():
         if atlas.is_file(): continue
 
@@ -45,16 +48,24 @@ def recolor(name, out_dir, replacements, fuzz):
 
         for sprite in atlas.iterdir():
             out_sprite = out_dir_atlas.joinpath(sprite.name)
-            # print(out_sprite)
+            print(f"Replacing {atlas.name}/{sprite.name} {" " * 32}", end="\r")
 
-            if not out_sprite.exists() or True:
+            if not out_sprite.exists():
                 img = Image.open(sprite).convert("RGBA")
                 data = np.array(img)
 
+                any_changed = False
                 for replace, to in replacements:
-                    replace_color(data, replace, to, fuzz)
-                result_img = Image.fromarray(data, "RGBA")
-                result_img.save(out_sprite)
+                    any_changed = any_changed or replace_color(data, replace, to, fuzz)
+                if any_changed:
+                    n_changed += 1
+                    result_img = Image.fromarray(data, "RGBA")
+                    result_img.save(out_sprite)
+                else:
+                    n_unchanged += 1
+
+    print()
+    print(f"Changed ({name}): {n_changed}/{n_changed + n_unchanged}")
 
 
 def create_skin(name, out, replacements):
