@@ -6,10 +6,11 @@ import json
 from UnityPy.environment import Environment
 from UnityPy.classes import Sprite, SpriteAtlas
 from UnityPy.enums import ClassIDType
+from UnityPy.export.SpriteHelper import get_image
 
 
 # configuration
-path = Path("/home/uni/.local/share/Steam/steamapps/common/Nine Sols/NineSols_Data/")
+path = Path("/home/jakob/.local/share/Steam/steamapps/common/Nine Sols/NineSols_Data/")
 out = Path("out")
 
 interest_includes = ["Yee"]
@@ -109,6 +110,20 @@ for atlas in atlases:
 
     out_skin_atlas = out_skin.joinpath(atlas_name)
     out_skin_atlas.mkdir(exist_ok=True)
+
+    if atlas and False:
+        atlas_path = out_skin_atlas.joinpath("atlas.png")
+        if not atlas_path.exists():
+            (atlas_texture,) = set(
+                data.texture.get_obj() for data in atlas.m_RenderDataMap.values()
+            )
+            (alpha_texture,) = set(
+                data.alphaTexture.get_obj() for data in atlas.m_RenderDataMap.values()
+            )
+            assert alpha_texture is None
+            atlas_image = get_image(atlas_texture, atlas_texture, None)
+            atlas_image = atlas_image.transpose(1)
+            atlas_image.save(atlas_path)
 
     for sprite in atlases[atlas]:
         out_skin_atlas_texture = out_skin_atlas.joinpath(sprite.name).with_suffix(
