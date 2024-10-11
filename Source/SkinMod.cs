@@ -63,7 +63,7 @@ public class SkinMod : BaseUnityPlugin {
             return;
         }
 
-        skinDataCache.SetSkin(skins[skinName]);
+        skinDataCache.SetSkin(skin);
     }
 
 

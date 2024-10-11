@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.IO.Compression;
+using System.Linq;
 using NineSolsAPI.Utils;
 using UnityEngine;
 
@@ -145,6 +146,8 @@ public interface ISkinData : IDisposable {
         return null;
     }
 
+    IEnumerable<string> LoadFiles();
+
     SkinMeta? SkinJson() {
         using var file = OpenFile("skin.json");
         if (file is null) return null;
@@ -160,6 +163,10 @@ internal class DirectorySkinData(string dirPath) : ISkinData {
         } catch (FileNotFoundException) {
             return null;
         }
+    }
+
+    public IEnumerable<string> LoadFiles() {
+        return Directory.EnumerateFiles(dirPath, "*.*", SearchOption.AllDirectories);
     }
 
     public override string ToString() => $"DirectorySkinData({dirPath}";
@@ -185,6 +192,10 @@ internal class ZipSkinData : ISkinData {
     public Stream? OpenFile(string filename) {
         var entry = zipArchive.GetEntry(filename);
         return entry?.Open();
+    }
+
+    public IEnumerable<string> LoadFiles() {
+        return zipArchive.Entries.Select(entry => entry.Name);
     }
 
 
