@@ -31,7 +31,6 @@ def replace_color(data, target_color, new_color, fuzz):
 
 input_dir = Path("out/skin_vanilla")
 
-
 def recolor(name, out_dir, replacements, fuzz):
     out_dir.mkdir(exist_ok=True)
 
@@ -39,18 +38,23 @@ def recolor(name, out_dir, replacements, fuzz):
         f.write(json.dumps({"name": name}, indent=4))
 
     for atlas in input_dir.iterdir():
-        if atlas.name.endswith("txt"):
-            continue
+        if atlas.is_file(): continue
 
-        out_path = out_dir.joinpath(atlas.name)
-        print(name, out_path.name)
+        out_dir_atlas = out_dir.joinpath(atlas.name)
+        out_dir_atlas.mkdir(exist_ok=True)
 
-        img = Image.open(atlas).convert("RGBA")
-        data = np.array(img)
-        for replace, to in replacements:
-            replace_color(data, replace, to, fuzz)
-        result_img = Image.fromarray(data, "RGBA")
-        result_img.save(out_path)
+        for sprite in atlas.iterdir():
+            out_sprite = out_dir_atlas.joinpath(sprite.name)
+            # print(out_sprite)
+
+            if not out_sprite.exists() or True:
+                img = Image.open(sprite).convert("RGBA")
+                data = np.array(img)
+
+                for replace, to in replacements:
+                    replace_color(data, replace, to, fuzz)
+                result_img = Image.fromarray(data, "RGBA")
+                result_img.save(out_sprite)
 
 
 def create_skin(name, out, replacements):
