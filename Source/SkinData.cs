@@ -24,20 +24,20 @@ public class SkinDataCache : IDisposable {
             spriteLocations[spriteInfo.name] = (atlasName, spriteInfo.rect);
     }
 
-    private ISkinData? skinData;
+    private ISkinData? activeSkinData;
 
     private Dictionary<string, Texture2D?> atlasCache = new();
     private Dictionary<string, Sprite?> spriteCache = new();
 
     public void SetSkin(ISkinData? skinData) {
-        this.skinData = skinData;
+        activeSkinData = skinData;
         atlasCache.Clear();
         spriteCache.Clear();
     }
 
 
     public void Dispose() {
-        skinData?.Dispose();
+        activeSkinData?.Dispose();
     }
 
     private Texture2D? GetAtlas(ISkinData skinData, string atlasName) {
@@ -82,9 +82,9 @@ public class SkinDataCache : IDisposable {
 */
 
     public Sprite? GetSprite(Sprite original) {
-        if (skinData is null) return null;
+        if (activeSkinData is null) return null;
         if (spriteCache.TryGetValue(original.name, out var cachedSprite)) return cachedSprite;
-        var sprite = GetSpriteInner(skinData, original);
+        var sprite = GetSpriteInner(activeSkinData, original);
         spriteCache[original.name] = sprite;
         return sprite;
     }
