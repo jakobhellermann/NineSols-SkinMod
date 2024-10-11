@@ -42,7 +42,11 @@ def interest_in_sprite(name: str):
 
 
 def dedup_by(values, by):
-    return [v1 for i, v1 in enumerate(values) if not any((by(v1) == by(v2) for v2 in values[:i]))]
+    return [
+        v1
+        for i, v1 in enumerate(values)
+        if not any((by(v1) == by(v2) for v2 in values[:i]))
+    ]
 
 
 def commonprefix(m):

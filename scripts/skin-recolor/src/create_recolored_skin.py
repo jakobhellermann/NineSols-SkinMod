@@ -30,7 +30,9 @@ def replace_color(data, target_color, new_color, fuzz):
 
     return np.any(mask)
 
+
 input_dir = Path("out/skin_vanilla")
+
 
 def recolor(name, out_dir, replacements, replacements_weak, fuzz):
     out_dir.mkdir(exist_ok=True)
@@ -41,7 +43,8 @@ def recolor(name, out_dir, replacements, replacements_weak, fuzz):
     n_changed = 0
     n_unchanged = 0
     for atlas in input_dir.iterdir():
-        if atlas.is_file(): continue
+        if atlas.is_file():
+            continue
 
         out_dir_atlas = out_dir.joinpath(atlas.name)
 
